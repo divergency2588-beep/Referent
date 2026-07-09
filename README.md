@@ -17,3 +17,4 @@ npm run dev
 - `npm run build` — сборка для production
 - `npm run start` — запуск production-сервера
 - `npm run lint` — проверка ESLint
+PROJECT.MD -opisanie projekta
