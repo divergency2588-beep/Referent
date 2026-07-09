@@ -16,6 +16,27 @@ const ACTION_DESCRIPTIONS: Record<ActionType, string> = {
   telegram: "Готовый пост для публикации в Telegram",
 };
 
+const ACTION_STYLES: Record<
+  ActionType,
+  { button: string; badge: string; spinner: string }
+> = {
+  summary: {
+    button: "bg-blue-600 hover:bg-blue-700",
+    badge: "bg-blue-100 text-blue-700",
+    spinner: "border-t-blue-600",
+  },
+  theses: {
+    button: "bg-emerald-600 hover:bg-emerald-700",
+    badge: "bg-emerald-100 text-emerald-700",
+    spinner: "border-t-emerald-600",
+  },
+  telegram: {
+    button: "bg-violet-600 hover:bg-violet-700",
+    badge: "bg-violet-100 text-violet-700",
+    spinner: "border-t-violet-600",
+  },
+};
+
 export default function ArticleForm() {
   const [url, setUrl] = useState("");
   const [result, setResult] = useState("");
@@ -99,9 +120,9 @@ export default function ArticleForm() {
               key={action}
               type="button"
               onClick={() => handleAction(action)}
-              disabled={loading || !url.trim()}
+              disabled={loading}
               title={ACTION_DESCRIPTIONS[action]}
-              className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className={`rounded-xl px-4 py-2.5 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 ${ACTION_STYLES[action].button}`}
             >
               {ACTION_LABELS[action]}
             </button>
@@ -119,7 +140,9 @@ export default function ArticleForm() {
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-900">Результат</h2>
           {activeAction && (
-            <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-medium ${ACTION_STYLES[activeAction].badge}`}
+            >
               {ACTION_LABELS[activeAction]}
             </span>
           )}
@@ -128,7 +151,9 @@ export default function ArticleForm() {
         <div className="min-h-48 rounded-xl border border-slate-200 bg-white p-4">
           {loading ? (
             <div className="flex h-48 items-center justify-center gap-3 text-slate-500">
-              <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+              <span
+                className={`h-5 w-5 animate-spin rounded-full border-2 border-slate-300 ${activeAction ? ACTION_STYLES[activeAction].spinner : "border-t-blue-600"}`}
+              />
               <span>Генерация ответа…</span>
             </div>
           ) : result ? (
