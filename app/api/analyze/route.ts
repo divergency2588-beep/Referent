@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
+import { parseArticleFromUrl } from "@/lib/parseArticle";
 
 type ActionType = "summary" | "theses" | "telegram";
 
-const PLACEHOLDER: Record<ActionType, string> = {
-  summary:
-    "Здесь будет краткое описание статьи. Подключение парсера и AI — на следующем этапе.",
-  theses:
-    "• Тезис 1\n• Тезис 2\n• Тезис 3\n\nСписок тезисов появится после интеграции с AI.",
-  telegram:
-    "📰 Заголовок поста\n\nКраткий анонс статьи на русском языке.\n\n🔗 Ссылка на источник",
+const PLACEHOLDER: Record<ActionType, (title: string | null) => string> = {
+  summary: (title) =>
+    `Краткое описание статьи «${title ?? "без заголовка"}» появится здесь после подключения AI.`,
+  theses: (title) =>
+    `• Тезис 1\n• Тезис 2\n• Тезис 3\n\nТезисы для «${title ?? "статьи"}» появятся после подключения AI.`,
+  telegram: (title) =>
+    `📰 ${title ?? "Заголовок поста"}\n\nКраткий анонс статьи на русском языке.\n\n🔗 Ссылка на источник`,
 };
 
 export async function POST(request: Request) {
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!action || !(action in PLACEHOLDER)) {
+    if (!action || !["summary", "theses", "telegram"].includes(action)) {
       return NextResponse.json(
         { error: "Неизвестный тип действия" },
         { status: 400 },
@@ -39,16 +40,16 @@ export async function POST(request: Request) {
       );
     }
 
-    // Заглушка до подключения парсера и AI
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    const article = await parseArticleFromUrl(url);
 
     return NextResponse.json({
-      result: `${PLACEHOLDER[action]}\n\nИсточник: ${url}`,
+      action,
+      result: PLACEHOLDER[action](article.title),
     });
-  } catch {
-    return NextResponse.json(
-      { error: "Внутренняя ошибка сервера" },
-      { status: 500 },
-    );
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Внутренняя ошибка сервера";
+
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

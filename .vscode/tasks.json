@@ -2,9 +2,9 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Освободить порт 3000",
+      "label": "Освободить порты 3000-3002",
       "type": "shell",
-      "command": "Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }",
+      "command": "3000,3001,3002 | ForEach-Object { Get-NetTCPConnection -LocalPort $_ -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue } }",
       "presentation": {
         "reveal": "silent",
         "panel": "shared",
@@ -13,9 +13,12 @@
     },
     {
       "label": "Dev Server",
-      "type": "npm",
-      "script": "dev",
-      "dependsOn": ["Освободить порт 3000"],
+      "type": "shell",
+      "command": "npm.cmd run dev",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": ["Освободить порты 3000-3002"],
       "isBackground": true,
       "runOptions": {
         "runOn": "folderOpen"

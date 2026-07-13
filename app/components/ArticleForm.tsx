@@ -2,15 +2,17 @@
 
 import { useState } from "react";
 
-type ActionType = "summary" | "theses" | "telegram";
+type ActionType = "parse" | "summary" | "theses" | "telegram";
 
 const ACTION_LABELS: Record<ActionType, string> = {
+  parse: "Парсить статью",
   summary: "О чём статья?",
   theses: "Тезисы",
   telegram: "Пост для Telegram",
 };
 
 const ACTION_DESCRIPTIONS: Record<ActionType, string> = {
+  parse: "Извлечь дату, заголовок и текст статьи",
   summary: "Краткое описание содержания статьи",
   theses: "Основные тезисы и ключевые идеи",
   telegram: "Готовый пост для публикации в Telegram",
@@ -20,6 +22,11 @@ const ACTION_STYLES: Record<
   ActionType,
   { button: string; badge: string; spinner: string }
 > = {
+  parse: {
+    button: "bg-amber-600 hover:bg-amber-700",
+    badge: "bg-amber-100 text-amber-800",
+    spinner: "border-t-amber-600",
+  },
   summary: {
     button: "bg-blue-600 hover:bg-blue-700",
     badge: "bg-blue-100 text-blue-700",
@@ -35,6 +42,13 @@ const ACTION_STYLES: Record<
     badge: "bg-violet-100 text-violet-700",
     spinner: "border-t-violet-600",
   },
+};
+
+const LOADING_LABELS: Record<ActionType, string> = {
+  parse: "Парсинг статьи…",
+  summary: "Генерация ответа…",
+  theses: "Генерация ответа…",
+  telegram: "Генерация ответа…",
 };
 
 export default function ArticleForm() {
@@ -64,8 +78,10 @@ export default function ArticleForm() {
     setLoading(true);
     setResult("");
 
+    const endpoint = action === "parse" ? "/api/parse" : "/api/analyze";
+
     try {
-      const response = await fetch("/api/analyze", {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url, action }),
@@ -115,7 +131,7 @@ export default function ArticleForm() {
         </div>
 
         <div className="flex flex-wrap gap-3">
-          {(Object.keys(ACTION_LABELS) as ActionType[]).map((action) => (
+          {(["summary", "theses", "telegram", "parse"] as const).map((action) => (
             <button
               key={action}
               type="button"
@@ -154,10 +170,14 @@ export default function ArticleForm() {
               <span
                 className={`h-5 w-5 animate-spin rounded-full border-2 border-slate-300 ${activeAction ? ACTION_STYLES[activeAction].spinner : "border-t-blue-600"}`}
               />
-              <span>Генерация ответа…</span>
+              <span>
+                {activeAction ? LOADING_LABELS[activeAction] : "Загрузка…"}
+              </span>
             </div>
           ) : result ? (
-            <p className="whitespace-pre-wrap text-slate-800">{result}</p>
+            <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-sm text-slate-800">
+              {result}
+            </pre>
           ) : (
             <p className="text-slate-400">
               Здесь появится результат после выбора действия
