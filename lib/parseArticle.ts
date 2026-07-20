@@ -126,18 +126,38 @@ export function parseArticleHtml(html: string): ParsedArticle {
   };
 }
 
+function fetchErrorMessage(status: number, url: string): string {
+  const hostname = new URL(url).hostname;
+
+  if (status === 401 || status === 403) {
+    return `Сайт ${hostname} блокирует автоматическую загрузку (${status}). Попробуйте другую статью, например с BBC: https://www.bbc.com/news/technology`;
+  }
+
+  if (status === 404) {
+    return "Страница не найдена (404). Проверьте, что ссылка ведёт на конкретную статью, а не на раздел сайта.";
+  }
+
+  return `Не удалось загрузить страницу (${status})`;
+}
+
 export async function fetchArticleHtml(url: string): Promise<string> {
+  const parsedUrl = new URL(url);
+
   const response = await fetch(url, {
     headers: {
       "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      Accept: "text/html,application/xhtml+xml",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      Accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
+      Referer: `${parsedUrl.protocol}//${parsedUrl.hostname}/`,
+      "Cache-Control": "no-cache",
     },
     signal: AbortSignal.timeout(15000),
   });
 
   if (!response.ok) {
-    throw new Error(`Не удалось загрузить страницу (${response.status})`);
+    throw new Error(fetchErrorMessage(response.status, url));
   }
 
   const contentType = response.headers.get("content-type") ?? "";
