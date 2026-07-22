@@ -1,15 +1,24 @@
 import { NextResponse } from "next/server";
+import {
+  extractTheses,
+  generateTelegramPost,
+  summarizeArticle,
+} from "@/lib/openrouter";
 import { parseArticleFromUrl } from "@/lib/parseArticle";
 
 type ActionType = "summary" | "theses" | "telegram";
 
-const PLACEHOLDER: Record<ActionType, (title: string | null) => string> = {
-  summary: (title) =>
-    `Краткое описание статьи «${title ?? "без заголовка"}» появится здесь после подключения AI.`,
-  theses: (title) =>
-    `• Тезис 1\n• Тезис 2\n• Тезис 3\n\nТезисы для «${title ?? "статьи"}» появятся после подключения AI.`,
-  telegram: (title) =>
-    `📰 ${title ?? "Заголовок поста"}\n\nКраткий анонс статьи на русском языке.\n\n🔗 Ссылка на источник`,
+const ANALYZERS: Record<
+  ActionType,
+  (
+    title: string | null,
+    content: string | null,
+    url: string,
+  ) => Promise<string>
+> = {
+  summary: (title, content) => summarizeArticle(title, content),
+  theses: (title, content) => extractTheses(title, content),
+  telegram: (title, content, url) => generateTelegramPost(title, content, url),
 };
 
 export async function POST(request: Request) {
@@ -41,11 +50,13 @@ export async function POST(request: Request) {
     }
 
     const article = await parseArticleFromUrl(url);
+    const result = await ANALYZERS[action](
+      article.title,
+      article.content,
+      url,
+    );
 
-    return NextResponse.json({
-      action,
-      result: PLACEHOLDER[action](article.title),
-    });
+    return NextResponse.json({ action, result });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Внутренняя ошибка сервера";

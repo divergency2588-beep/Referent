@@ -1,7 +1,15 @@
+import {
+  ANALYZE_PROMPTS,
+  type AnalyzeAction,
+  buildArticleText,
+} from "@/lib/prompts";
+
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_MODEL = process.env.OPENROUTER_MODEL ?? "openrouter/free";
 const MAX_OUTPUT_TOKENS = 4096;
-const MAX_ARTICLE_CHARS = 8000;type ChatMessage = {
+const MAX_ARTICLE_CHARS = 8000;
+
+type ChatMessage = {
   role: "system" | "user" | "assistant";
   content: string;
 };
@@ -42,13 +50,15 @@ export async function chatCompletion(
       messages,
       temperature: 0.3,
       max_tokens: MAX_OUTPUT_TOKENS,
-    }),    signal: AbortSignal.timeout(120000),
+    }),
+    signal: AbortSignal.timeout(120000),
   });
 
   const data = (await response.json()) as OpenRouterResponse;
 
   if (!response.ok) {
-    const apiMessage = data.error?.message ?? `OpenRouter вернул ошибку (${response.status})`;
+    const apiMessage =
+      data.error?.message ?? `OpenRouter вернул ошибку (${response.status})`;
 
     if (/credits|afford|max_tokens/i.test(apiMessage)) {
       throw new Error(
@@ -58,6 +68,7 @@ export async function chatCompletion(
 
     throw new Error(apiMessage);
   }
+
   const content = data.choices?.[0]?.message?.content?.trim();
 
   if (!content) {
@@ -67,20 +78,65 @@ export async function chatCompletion(
   return content;
 }
 
+function ensureContent(content: string | null): string {
+  if (!content?.trim()) {
+    throw new Error("Не удалось получить текст статьи");
+  }
+
+  return content;
+}
+
+async function analyzeArticle(
+  action: AnalyzeAction,
+  title: string | null,
+  content: string | null,
+  url?: string,
+): Promise<string> {
+  const articleContent = ensureContent(content);
+  const articleText = buildArticleText(title, articleContent, MAX_ARTICLE_CHARS);
+  const prompts = ANALYZE_PROMPTS[action];
+
+  return chatCompletion([
+    { role: "system", content: prompts.system },
+    { role: "user", content: prompts.buildUser(articleText, url) },
+  ]);
+}
+
+export async function summarizeArticle(
+  title: string | null,
+  content: string | null,
+): Promise<string> {
+  return analyzeArticle("summary", title, content);
+}
+
+export async function extractTheses(
+  title: string | null,
+  content: string | null,
+): Promise<string> {
+  return analyzeArticle("theses", title, content);
+}
+
+export async function generateTelegramPost(
+  title: string | null,
+  content: string | null,
+  url: string,
+): Promise<string> {
+  const post = await analyzeArticle("telegram", title, content, url);
+  const sourceLine = `🔗 Источник: ${url}`;
+
+  if (post.includes(url) || /источник\s*:/i.test(post)) {
+    return post.trim();
+  }
+
+  return `${post.trim()}\n\n${sourceLine}`;
+}
+
 export async function translateArticleToRussian(
   title: string | null,
   content: string | null,
 ): Promise<string> {
-  if (!content?.trim()) {
-    throw new Error("Не удалось получить текст статьи для перевода");
-  }
-
-  const articleText = [
-    title ? `Заголовок: ${title}` : null,
-    "",
-    content.slice(0, MAX_ARTICLE_CHARS),  ]
-    .filter((part) => part !== null)
-    .join("\n");
+  const articleContent = ensureContent(content);
+  const articleText = buildArticleText(title, articleContent, MAX_ARTICLE_CHARS);
 
   return chatCompletion([
     {
