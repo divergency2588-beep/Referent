@@ -2,19 +2,15 @@
 
 import { useState } from "react";
 
-type ActionType = "parse" | "translate" | "summary" | "theses" | "telegram";
+type ActionType = "summary" | "theses" | "telegram";
 
 const ACTION_LABELS: Record<ActionType, string> = {
-  parse: "Парсить статью",
-  translate: "Перевести",
   summary: "О чём статья?",
   theses: "Тезисы",
   telegram: "Пост для Telegram",
 };
 
 const ACTION_DESCRIPTIONS: Record<ActionType, string> = {
-  parse: "Извлечь дату, заголовок и текст статьи",
-  translate: "Перевести статью на русский язык через AI",
   summary: "Краткое описание содержания статьи",
   theses: "Основные тезисы и ключевые идеи",
   telegram: "Готовый пост для публикации в Telegram",
@@ -24,16 +20,6 @@ const ACTION_STYLES: Record<
   ActionType,
   { button: string; badge: string; spinner: string }
 > = {
-  parse: {
-    button: "bg-amber-600 hover:bg-amber-700",
-    badge: "bg-amber-100 text-amber-800",
-    spinner: "border-t-amber-600",
-  },
-  translate: {
-    button: "bg-rose-600 hover:bg-rose-700",
-    badge: "bg-rose-100 text-rose-800",
-    spinner: "border-t-rose-600",
-  },
   summary: {
     button: "bg-blue-600 hover:bg-blue-700",
     badge: "bg-blue-100 text-blue-700",
@@ -52,26 +38,12 @@ const ACTION_STYLES: Record<
 };
 
 const LOADING_LABELS: Record<ActionType, string> = {
-  parse: "Парсинг статьи…",
-  translate: "Перевод статьи…",
   summary: "Генерация ответа…",
   theses: "Генерация ответа…",
   telegram: "Генерация ответа…",
 };
 
-const ACTION_ORDER: ActionType[] = [
-  "summary",
-  "theses",
-  "telegram",
-  "translate",
-  "parse",
-];
-
-function getEndpoint(action: ActionType): string {
-  if (action === "parse") return "/api/parse";
-  if (action === "translate") return "/api/translate";
-  return "/api/analyze";
-}
+const ACTION_ORDER: ActionType[] = ["summary", "theses", "telegram"];
 
 export default function ArticleForm() {
   const [url, setUrl] = useState("");
@@ -101,7 +73,7 @@ export default function ArticleForm() {
     setResult("");
 
     try {
-      const response = await fetch(getEndpoint(action), {
+      const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url, action }),
@@ -120,8 +92,6 @@ export default function ArticleForm() {
       setLoading(false);
     }
   };
-
-  const isJsonResult = activeAction === "parse";
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-8">
@@ -197,15 +167,9 @@ export default function ArticleForm() {
               </span>
             </div>
           ) : result ? (
-            isJsonResult ? (
-              <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-sm text-slate-800">
-                {result}
-              </pre>
-            ) : (
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
-                {result}
-              </p>
-            )
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
+              {result}
+            </p>
           ) : (
             <p className="text-slate-400">
               Здесь появится результат после выбора действия
