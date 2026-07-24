@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type ActionType = "summary" | "theses" | "telegram";
 
@@ -11,9 +11,12 @@ const ACTION_LABELS: Record<ActionType, string> = {
 };
 
 const ACTION_DESCRIPTIONS: Record<ActionType, string> = {
-  summary: "Краткое описание содержания статьи",
-  theses: "Основные тезисы и ключевые идеи",
-  telegram: "Готовый пост для публикации в Telegram",
+  summary:
+    "Кратко описать на русском, о чём англоязычная статья и какая в ней главная мысль",
+  theses:
+    "Выделить основные тезисы и ключевые идеи статьи списком на русском языке",
+  telegram:
+    "Сформировать готовый пост для Telegram на русском со ссылкой на источник",
 };
 
 const ACTION_STYLES: Record<
@@ -37,12 +40,6 @@ const ACTION_STYLES: Record<
   },
 };
 
-const LOADING_LABELS: Record<ActionType, string> = {
-  summary: "Генерация ответа…",
-  theses: "Генерация ответа…",
-  telegram: "Генерация ответа…",
-};
-
 const ACTION_ORDER: ActionType[] = ["summary", "theses", "telegram"];
 
 export default function ArticleForm() {
@@ -50,7 +47,23 @@ export default function ArticleForm() {
   const [result, setResult] = useState("");
   const [activeAction, setActiveAction] = useState<ActionType | null>(null);
   const [loading, setLoading] = useState(false);
+  const [processMessage, setProcessMessage] = useState<string | null>(null);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!loading) {
+      setProcessMessage(null);
+      return;
+    }
+
+    setProcessMessage("Загружаю статью…");
+
+    const timer = window.setTimeout(() => {
+      setProcessMessage("Генерирую ответ…");
+    }, 2500);
+
+    return () => window.clearTimeout(timer);
+  }, [loading]);
 
   const isValidUrl = (value: string) => {
     try {
@@ -117,9 +130,12 @@ export default function ArticleForm() {
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://example.com/article"
+            placeholder="Введите URL статьи, например: https://example.com/article"
             className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           />
+          <p className="text-xs text-slate-500">
+            Укажите ссылку на англоязычную статью
+          </p>
         </div>
 
         <div className="flex flex-wrap gap-3">
@@ -145,9 +161,18 @@ export default function ArticleForm() {
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
+        {processMessage && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm text-blue-800">
+            <span
+              className={`h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-blue-200 ${activeAction ? ACTION_STYLES[activeAction].spinner : "border-t-blue-600"}`}
+            />
+            <span>{processMessage}</span>
+          </div>
+        )}
+
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-900">Результат</h2>
-          {activeAction && (
+          {activeAction && !loading && (
             <span
               className={`rounded-full px-3 py-1 text-xs font-medium ${ACTION_STYLES[activeAction].badge}`}
             >
@@ -158,13 +183,8 @@ export default function ArticleForm() {
 
         <div className="min-h-48 rounded-xl border border-slate-200 bg-white p-4">
           {loading ? (
-            <div className="flex h-48 items-center justify-center gap-3 text-slate-500">
-              <span
-                className={`h-5 w-5 animate-spin rounded-full border-2 border-slate-300 ${activeAction ? ACTION_STYLES[activeAction].spinner : "border-t-blue-600"}`}
-              />
-              <span>
-                {activeAction ? LOADING_LABELS[activeAction] : "Загрузка…"}
-              </span>
+            <div className="flex h-48 items-center justify-center text-slate-400">
+              Ожидайте результат…
             </div>
           ) : result ? (
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
