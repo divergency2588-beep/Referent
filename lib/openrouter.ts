@@ -3,6 +3,7 @@ import {
   type AnalyzeAction,
   buildArticleText,
 } from "@/lib/prompts";
+import { AppError } from "@/lib/errors";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_MODEL = process.env.OPENROUTER_MODEL ?? "openrouter/free";
@@ -32,12 +33,11 @@ export async function chatCompletion(
   const apiKey = process.env.OPENROUTER_API_KEY;
 
   if (!apiKey) {
-    throw new Error(
-      "OPENROUTER_API_KEY не задан. Добавьте ключ в .env.local и перезапустите сервер.",
-    );
+    throw new AppError("AI_UNAVAILABLE", 503);
   }
 
-  const response = await fetch(OPENROUTER_URL, {
+  try {
+    const response = await fetch(OPENROUTER_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -52,35 +52,39 @@ export async function chatCompletion(
       max_tokens: MAX_OUTPUT_TOKENS,
     }),
     signal: AbortSignal.timeout(120000),
-  });
+    });
 
-  const data = (await response.json()) as OpenRouterResponse;
+    const data = (await response.json()) as OpenRouterResponse;
 
-  if (!response.ok) {
-    const apiMessage =
-      data.error?.message ?? `OpenRouter вернул ошибку (${response.status})`;
+    if (!response.ok) {
+      const apiMessage = data.error?.message ?? "";
 
-    if (/credits|afford|max_tokens/i.test(apiMessage)) {
-      throw new Error(
-        "Недостаточно кредитов OpenRouter для этой модели. Сейчас используется бесплатная модель openrouter/free — перезапустите сервер и попробуйте снова.",
-      );
+      if (/credits|afford|max_tokens/i.test(apiMessage)) {
+        throw new AppError("AI_CREDITS", 502);
+      }
+
+      throw new AppError("AI_UNAVAILABLE", 502);
     }
 
-    throw new Error(apiMessage);
+    const content = data.choices?.[0]?.message?.content?.trim();
+
+    if (!content) {
+      throw new AppError("AI_UNAVAILABLE", 502);
+    }
+
+    return content;
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+
+    throw new AppError("AI_UNAVAILABLE", 502);
   }
-
-  const content = data.choices?.[0]?.message?.content?.trim();
-
-  if (!content) {
-    throw new Error("OpenRouter не вернул текст ответа");
-  }
-
-  return content;
 }
 
 function ensureContent(content: string | null): string {
   if (!content?.trim()) {
-    throw new Error("Не удалось получить текст статьи");
+    throw new AppError("ARTICLE_PARSE_FAILED", 422);
   }
 
   return content;

@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { assertValidHttpUrl, errorResponse } from "@/lib/apiError";
+import { AppError } from "@/lib/errors";
 import { translateArticleToRussian } from "@/lib/openrouter";
 import { parseArticleFromUrl } from "@/lib/parseArticle";
 
@@ -8,20 +10,10 @@ export async function POST(request: Request) {
     const { url } = body as { url?: string };
 
     if (!url || typeof url !== "string") {
-      return NextResponse.json(
-        { error: "URL статьи обязателен" },
-        { status: 400 },
-      );
+      throw new AppError("VALIDATION", 400);
     }
 
-    try {
-      new URL(url);
-    } catch {
-      return NextResponse.json(
-        { error: "Некорректный URL" },
-        { status: 400 },
-      );
-    }
+    assertValidHttpUrl(url);
 
     const article = await parseArticleFromUrl(url);
     const result = await translateArticleToRussian(
@@ -31,9 +23,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ result });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Внутренняя ошибка сервера";
-
-    return NextResponse.json({ error: message }, { status: 500 });
+    return errorResponse(error);
   }
 }

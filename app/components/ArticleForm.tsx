@@ -1,6 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AlertCircle } from "lucide-react";
+
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert";
+import type { ErrorCode } from "@/lib/errors";
+import { getUserErrorMessage, parseErrorCode } from "@/lib/userMessages";
+
+const ERROR_TITLES: Partial<Record<ErrorCode, string>> = {
+  INVALID_URL: "Некорректная ссылка",
+  ARTICLE_FETCH_FAILED: "Ошибка загрузки",
+  ARTICLE_PARSE_FAILED: "Ошибка парсинга",
+  AI_UNAVAILABLE: "AI недоступен",
+  AI_CREDITS: "Лимит OpenRouter",
+  VALIDATION: "Неверный запрос",
+  UNKNOWN: "Ошибка",
+};
 
 type ActionType = "summary" | "theses" | "telegram";
 
@@ -48,7 +67,7 @@ export default function ArticleForm() {
   const [activeAction, setActiveAction] = useState<ActionType | null>(null);
   const [loading, setLoading] = useState(false);
   const [processMessage, setProcessMessage] = useState<string | null>(null);
-  const [error, setError] = useState("");
+  const [errorCode, setErrorCode] = useState<ErrorCode | null>(null);
 
   useEffect(() => {
     if (!loading) {
@@ -76,11 +95,11 @@ export default function ArticleForm() {
 
   const handleAction = async (action: ActionType) => {
     if (!isValidUrl(url)) {
-      setError("Введите корректный URL статьи (http:// или https://)");
+      setErrorCode("INVALID_URL");
       return;
     }
 
-    setError("");
+    setErrorCode(null);
     setActiveAction(action);
     setLoading(true);
     setResult("");
@@ -94,13 +113,15 @@ export default function ArticleForm() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error ?? "Не удалось обработать статью");
+        setErrorCode(parseErrorCode(data.code) ?? "UNKNOWN");
+        return;
       }
 
       const data = await response.json();
       setResult(data.result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Произошла ошибка");
+      setErrorCode(null);
+    } catch {
+      setErrorCode("UNKNOWN");
     } finally {
       setLoading(false);
     }
@@ -153,10 +174,16 @@ export default function ArticleForm() {
           ))}
         </div>
 
-        {error && (
-          <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </p>
+        {errorCode && (
+          <Alert variant="destructive">
+            <AlertCircle />
+            <AlertTitle>
+              {ERROR_TITLES[errorCode] ?? ERROR_TITLES.UNKNOWN}
+            </AlertTitle>
+            <AlertDescription>
+              {getUserErrorMessage(errorCode)}
+            </AlertDescription>
+          </Alert>
         )}
       </section>
 
