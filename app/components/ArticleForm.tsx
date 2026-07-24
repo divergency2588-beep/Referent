@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertCircle } from "lucide-react";
 
 import {
@@ -62,12 +62,15 @@ const ACTION_STYLES: Record<
 const ACTION_ORDER: ActionType[] = ["summary", "theses", "telegram"];
 
 export default function ArticleForm() {
+  const resultSectionRef = useRef<HTMLElement>(null);
+
   const [url, setUrl] = useState("");
   const [result, setResult] = useState("");
   const [activeAction, setActiveAction] = useState<ActionType | null>(null);
   const [loading, setLoading] = useState(false);
   const [processMessage, setProcessMessage] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<ErrorCode | null>(null);
+  const [copyLabel, setCopyLabel] = useState("Копировать");
 
   useEffect(() => {
     if (!loading) {
@@ -84,12 +87,44 @@ export default function ArticleForm() {
     return () => window.clearTimeout(timer);
   }, [loading]);
 
+  const scrollToResults = () => {
+    resultSectionRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
   const isValidUrl = (value: string) => {
     try {
       const parsed = new URL(value);
       return parsed.protocol === "http:" || parsed.protocol === "https:";
     } catch {
       return false;
+    }
+  };
+
+  const handleClear = () => {
+    setUrl("");
+    setResult("");
+    setActiveAction(null);
+    setLoading(false);
+    setProcessMessage(null);
+    setErrorCode(null);
+    setCopyLabel("Копировать");
+  };
+
+  const handleCopy = async () => {
+    if (!result) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(result);
+      setCopyLabel("Скопировано");
+      window.setTimeout(() => setCopyLabel("Копировать"), 2000);
+    } catch {
+      setCopyLabel("Не удалось скопировать");
+      window.setTimeout(() => setCopyLabel("Копировать"), 2000);
     }
   };
 
@@ -103,6 +138,7 @@ export default function ArticleForm() {
     setActiveAction(action);
     setLoading(true);
     setResult("");
+    setCopyLabel("Копировать");
 
     try {
       const response = await fetch("/api/analyze", {
@@ -120,6 +156,7 @@ export default function ArticleForm() {
       const data = await response.json();
       setResult(data.result);
       setErrorCode(null);
+      window.requestAnimationFrame(() => scrollToResults());
     } catch {
       setErrorCode("UNKNOWN");
     } finally {
@@ -159,7 +196,7 @@ export default function ArticleForm() {
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {ACTION_ORDER.map((action) => (
             <button
               key={action}
@@ -172,6 +209,15 @@ export default function ArticleForm() {
               {ACTION_LABELS[action]}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={handleClear}
+            disabled={loading}
+            title="Сбросить URL, результат, ошибки и состояние формы"
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Очистить
+          </button>
         </div>
 
         {errorCode && (
@@ -187,7 +233,10 @@ export default function ArticleForm() {
         )}
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
+      <section
+        ref={resultSectionRef}
+        className="scroll-mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-6 shadow-sm"
+      >
         {processMessage && (
           <div className="mb-4 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm text-blue-800">
             <span
@@ -197,15 +246,27 @@ export default function ArticleForm() {
           </div>
         )}
 
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold text-slate-900">Результат</h2>
-          {activeAction && !loading && (
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-medium ${ACTION_STYLES[activeAction].badge}`}
-            >
-              {ACTION_LABELS[activeAction]}
-            </span>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {result && !loading && (
+              <button
+                type="button"
+                onClick={handleCopy}
+                title="Скопировать текст результата в буфер обмена"
+                className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100"
+              >
+                {copyLabel}
+              </button>
+            )}
+            {activeAction && !loading && (
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-medium ${ACTION_STYLES[activeAction].badge}`}
+              >
+                {ACTION_LABELS[activeAction]}
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="min-h-48 rounded-xl border border-slate-200 bg-white p-4">
